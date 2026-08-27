@@ -1,10 +1,24 @@
 const SHEET_NAME = 'Orders';
+// For a standalone Apps Script project, paste the destination Sheet ID here.
+// Leave blank when this script is bound to the spreadsheet itself.
+const SPREADSHEET_ID = '1vFyERjcp02kqyxLi4GNxpLftu8WXHXpuy1m_y3wVIrM';
+
+function getOrdersSpreadsheet() {
+  const ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('No spreadsheet found. Bind this script to your Sheet or set SPREADSHEET_ID.');
+  return ss;
+}
+
+function doGet() {
+  return ContentService.createTextOutput(JSON.stringify({ ok: true, service: 'Coverly order capture' }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
 
 function doPost(e) {
   try {
     const raw = (e && e.postData && e.postData.contents) || (e && e.parameter && e.parameter.payload) || '{}';
     const payload = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const ss = getOrdersSpreadsheet();
     const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
     const headers = ['Received at','Order ID','Name','Phone','Email','Address','City','State','Pincode','Payment method','Payment status','Total (INR)','Items'];
     if (sheet.getLastRow() === 0) sheet.appendRow(headers);
