@@ -111,7 +111,7 @@ products.forEach(p=>{const custom=(window.coverPriceOverrides||{})[p.title];if(c
 premiumPay=function(){
   const choice=selectedPremiumPayment||'upi',terms=window.coverlyPaymentOverride||{},amount=choice==='cod'?349:Math.round(cartTotal()*0.8),endpoint=window.coverlyOrderWebhook||'',error=document.getElementById('premiumPaymentError');
   if(!endpoint){error.textContent='Payment setup is incomplete. Please contact support.';error.style.display='block';return}
-  const payload={orderId:'CVR-'+Date.now().toString(36).toUpperCase(),customer:{name:document.getElementById('pName').value.trim(),phone:document.getElementById('pPhone').value.replace(/\D/g,''),email:document.getElementById('pEmail').value.trim(),address:document.getElementById('pAddress').value.trim(),city:document.getElementById('pCity').value.trim(),state:document.getElementById('pState').value.trim(),pincode:document.getElementById('pPin')?.value.trim()||''},selectedPaymentMethod:terms.method||'Prepaid — 20% off',paymentMethod:terms.method||'Prepaid — 20% off',paymentStatus:'Payment initiated',total:terms.fullTotal||cartTotal(),discount:terms.discount||0,amountPaidNow:terms.amountPaidNow||amount,balanceOnDelivery:terms.balanceOnDelivery||0,items:cart.map(item=>{const p=products.find(product=>product.id===item.id);return {title:p.title,model:p.model,colour:p.colour,material:p.material,quantity:item.q,unitPrice:p.p}})};
+  const payload={orderId:'CVR-'+Date.now().toString(36).toUpperCase(),customer:{name:document.getElementById('pName').value.trim(),phone:document.getElementById('pPhone').value.replace(/\D/g,''),email:document.getElementById('pEmail').value.trim(),address:document.getElementById('pAddress').value.trim(),city:document.getElementById('pCity').value.trim(),state:document.getElementById('pState').value.trim(),pincode:document.getElementById('pPin')?.value.trim()||''},selectedPaymentMethod:terms.method||'Prepaid',paymentMethod:terms.method||'Prepaid',paymentStatus:'Payment initiated',total:amount,originalTotal:terms.fullTotal||cartTotal(),discount:terms.discount||0,amountPaidNow:amount,balanceOnDelivery:terms.balanceOnDelivery||0,items:cart.map(item=>{const p=products.find(product=>product.id===item.id);return {title:p.title,model:p.model,colour:p.colour,material:p.material,quantity:item.q,unitPrice:p.p}})};
   const body='payload='+encodeURIComponent(JSON.stringify(payload));try{navigator.sendBeacon(endpoint,new Blob([body],{type:'application/x-www-form-urlencoded;charset=UTF-8'}))}catch(ignore){};
   upiIntent=`upi://pay?pa=${merchantUpiId}&pn=Coverly&am=${amount}&cu=INR`;launchCoverlyUpi();
 };
@@ -154,7 +154,7 @@ premiumPay=function(){
     const button=document.querySelector('#premiumPayment .premium-continue');if(button)button.querySelector('span').textContent='→';
     // Store the commercial terms with the order before opening the UPI app.
     const originalWebhook=window.coverlyOrderWebhook,originalForm=window.coverlyGoogleForm;
-    window.coverlyPaymentOverride={method:choice==='cod'?'COD — ₹349 advance':'Prepaid — 20% off',fullTotal:total,discount,amountPaidNow:payAmount,balanceOnDelivery:choice==='cod'?Math.max(0,total-advance):0};
+    window.coverlyPaymentOverride={method:choice==='cod'?'COD':'Prepaid',fullTotal:total,discount,amountPaidNow:payAmount,balanceOnDelivery:choice==='cod'?Math.max(0,total-advance):0};
     oldPay();
   };
   const oldOpen=openCheckout;
