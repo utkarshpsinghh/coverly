@@ -106,9 +106,53 @@ window.addEventListener('load',()=>{const hardColours=['Lime Stone','Pebble Pink
 // Apply optional per-product pricing from price-config.js.
 products.forEach(p=>{const custom=(window.coverPriceOverrides||{})[p.title];if(custom){if(Number.isFinite(custom.discounted))p.p=custom.discounted;if(Number.isFinite(custom.original))p.old=custom.original;}});
 </script>
+<script>
+// Final payment handler includes the selected discount/advance terms in the Sheet row.
+premiumPay=function(){
+  const choice=selectedPremiumPayment||'upi',terms=window.coverlyPaymentOverride||{},amount=choice==='cod'?349:Math.round(cartTotal()*0.8),endpoint=window.coverlyOrderWebhook||'',error=document.getElementById('premiumPaymentError');
+  if(!endpoint){error.textContent='Payment setup is incomplete. Please contact support.';error.style.display='block';return}
+  const payload={orderId:'CVR-'+Date.now().toString(36).toUpperCase(),customer:{name:document.getElementById('pName').value.trim(),phone:document.getElementById('pPhone').value.replace(/\D/g,''),email:document.getElementById('pEmail').value.trim(),address:document.getElementById('pAddress').value.trim(),city:document.getElementById('pCity').value.trim(),state:document.getElementById('pState').value.trim(),pincode:document.getElementById('pPin')?.value.trim()||''},paymentMethod:terms.method||'Prepaid — 20% off',paymentStatus:'Payment initiated',total:terms.fullTotal||cartTotal(),discount:terms.discount||0,amountPaidNow:terms.amountPaidNow||amount,balanceOnDelivery:terms.balanceOnDelivery||0,items:cart.map(item=>{const p=products.find(product=>product.id===item.id);return {title:p.title,model:p.model,colour:p.colour,material:p.material,quantity:item.q,unitPrice:p.p}})};
+  const body='payload='+encodeURIComponent(JSON.stringify(payload));try{navigator.sendBeacon(endpoint,new Blob([body],{type:'application/x-www-form-urlencoded;charset=UTF-8'}))}catch(ignore){};
+  upiIntent=`upi://pay?pa=${merchantUpiId}&pn=Coverly&am=${amount}&cu=INR`;launchCoverlyUpi();
+};
+</script>
 <style>
 @media(max-width:700px){#productModal .product-detail{padding-bottom:78px}#productModal #detailAdd{position:fixed;left:18px;right:18px;bottom:16px;width:calc(100% - 36px);z-index:60;box-shadow:0 8px 24px rgba(23,38,31,.25)}#cart .summary{position:sticky;bottom:0;background:var(--paper);padding-bottom:10px;z-index:5}#cart .summary .checkout{position:sticky;bottom:8px;box-shadow:0 8px 20px rgba(23,38,31,.2)}}
 </style>
+<script>
+// Payment choices: prepaid gets 20% off; COD requires a ₹349 UPI advance.
+(function(){
+  const fullTotal=()=>Number(cartTotal()||0), prepaidTotal=()=>Math.round(fullTotal()*0.8), advance=349;
+  function setPaymentChoice(choice){
+    selectedPremiumPayment=choice;
+    const upi=document.getElementById('upiMethod'),cod=document.getElementById('codMethod'),amount=document.getElementById('premiumPayAmount'),error=document.getElementById('premiumPaymentError');
+    upi?.classList.toggle('active',choice==='upi'); cod?.classList.toggle('active',choice==='cod');
+    if(amount) amount.textContent=money(choice==='cod'?advance:prepaidTotal());
+    if(error) error.style.display='none';
+    const intro=document.querySelector('#premiumPayment .pane-intro');
+    if(intro) intro.textContent=choice==='cod'?'Pay ₹349 advance to confirm COD':'Pay securely online and save 20%';
+    const note=document.querySelector('#premiumPayment .cod-off');
+    if(note) note.textContent=choice==='cod'?'COD is available. Pay ₹349 now by UPI; the remaining balance is payable on delivery.':'Prepaid offer: enjoy 20% off your order when you pay online.';
+  }
+  const oldToPayment=premiumToPayment;
+  premiumToPayment=function(){oldToPayment();setPaymentChoice('upi');const cod=document.getElementById('codMethod');if(cod){cod.disabled=false;cod.innerHTML='Cash on Delivery<small>₹349 advance, balance on delivery</small>';cod.onclick=()=>setPaymentChoice('cod')}};
+  const oldPay=window.premiumPay;
+  premiumPay=function(){
+    const choice=selectedPremiumPayment||'upi',payAmount=choice==='cod'?advance:prepaidTotal();
+    const total=fullTotal(),discount=choice==='upi'?total-payAmount:0;
+    upiIntent=`upi://pay?pa=${merchantUpiId}&pn=Coverly&am=${payAmount}&cu=INR`;
+    const qr=document.getElementById('premiumQr');if(qr)qr.src='https://api.qrserver.com/v1/create-qr-code/?size=220x220&data='+encodeURIComponent(upiIntent);
+    const amount=document.getElementById('premiumPayAmount');if(amount)amount.textContent=money(payAmount);
+    const button=document.querySelector('#premiumPayment .premium-continue');if(button)button.querySelector('span').textContent='→';
+    // Store the commercial terms with the order before opening the UPI app.
+    const originalWebhook=window.coverlyOrderWebhook,originalForm=window.coverlyGoogleForm;
+    window.coverlyPaymentOverride={method:choice==='cod'?'COD — ₹349 advance':'Prepaid — 20% off',fullTotal:total,discount,amountPaidNow:payAmount,balanceOnDelivery:choice==='cod'?Math.max(0,total-advance):0};
+    oldPay();
+  };
+  const oldOpen=openCheckout;
+  openCheckout=function(){oldOpen();setTimeout(()=>{const cod=document.getElementById('codMethod');if(cod){cod.disabled=false;cod.innerHTML='Cash on Delivery<small>₹349 advance, balance on delivery</small>';cod.onclick=()=>setPaymentChoice('cod')}},0)};
+})();
+</script>
 <script>
 // Mobile checkout: UPI is the only available method, so it is selected automatically.
 const coverlyCheckoutOpen=openCheckout;openCheckout=function(){coverlyCheckoutOpen();selectedPremiumPayment='upi';document.getElementById('upiMethod')?.classList.add('active')};
